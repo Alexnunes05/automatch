@@ -89,7 +89,6 @@ body::before {
 }
 
 a {
-  inherit: none;
   text-decoration: none;
   color: inherit;
 }
@@ -718,6 +717,71 @@ textarea:focus {
   padding: 8px;
   position: relative;
   z-index: 101;
+}
+
+/* Dashboard Specific Responsiveness */
+.dashboard-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.dashboard-tabs-wrapper {
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  padding-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-tabs-wrapper::-webkit-scrollbar {
+  display: none;
+  /* Hide scrollbar for Chrome, Safari and Opera */
+}
+
+.dashboard-tabs-wrapper .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.leads-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-header-flex {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  .dashboard-tabs-wrapper {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .leads-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .opportunity-card-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .opportunity-card-footer .btn {
+    width: 100%;
+  }
 }
 
 /* Responsive */

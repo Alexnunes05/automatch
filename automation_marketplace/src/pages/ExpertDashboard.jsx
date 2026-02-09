@@ -8,6 +8,10 @@ import ProfileSettings from './expert/ProfileSettings';
 import PortfolioManager from './expert/PortfolioManager';
 
 const ExpertDashboard = () => {
+    const formatCurrency = (value) => {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    };
+
     // Force rebuild: v2
     const [activeTab, setActiveTab] = useState('available'); // available | my-leads | templates | portfolio | profile | news
     const [leads, setLeads] = useState([]);
@@ -84,18 +88,45 @@ const ExpertDashboard = () => {
     // Replace fetchLeads with this in useEffect
     useEffect(() => {
         const fetchUserAndData = async () => {
+            setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
+
+            if (!user) {
+                setLoading(false);
+                return;
+            }
+
             if (activeTab === 'templates') {
-                fetchMyTemplates(user.id);
+                await fetchMyTemplates(user.id);
             } else if (activeTab === 'news') {
                 // No data needed
             } else if (activeTab !== 'portfolio' && activeTab !== 'profile') {
-                fetchDashboardData(user.id);
+                await fetchDashboardData(user.id);
             }
+            setLoading(false);
         };
         fetchUserAndData();
     }, [activeTab]);
+
+    if (!loading && !user) {
+        return (
+            <>
+                <Navbar />
+                <div className="container" style={{ padding: '80px 20px', textAlign: 'center' }}>
+                    <div className="glass-card">
+                        <h2>Acesso Restrito</h2>
+                        <p style={{ color: 'hsl(var(--text-secondary))', margin: '16px 0' }}>
+                            Você precisa estar logado como gestor para acessar esta página.
+                        </p>
+                        <button onClick={() => window.location.href = '/login'} className="btn btn-primary">
+                            Ir para Login
+                        </button>
+                    </div>
+                </div>
+            </>
+        );
+    }
 
     const handleAcceptOffer = async (offerId) => {
         try {
@@ -130,10 +161,10 @@ const ExpertDashboard = () => {
     return (
         <>
             <Navbar />
-            <div className="container" style={{ padding: '40px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                    <h2>Painel do Gestor</h2>
-                    <div className="glass-card" style={{ padding: '8px', display: 'flex', gap: '8px' }}>
+            <div className="container" style={{ padding: '40px 20px' }}>
+                <div className="dashboard-header-flex">
+                    <h2 style={{ fontSize: '1.75rem' }}>Painel do Gestor</h2>
+                    <div className="glass-card dashboard-tabs-wrapper">
                         <button
                             className={`btn ${activeTab === 'available' ? 'btn-primary' : 'btn-outline'}`}
                             onClick={() => setActiveTab('available')}
@@ -170,7 +201,6 @@ const ExpertDashboard = () => {
                         >
                             Perfil
                         </button>
-
                     </div>
                 </div>
 
@@ -195,7 +225,7 @@ const ExpertDashboard = () => {
                                     <p style={{ color: 'hsl(var(--text-secondary))' }}>Você ainda não publicou nenhum template.</p>
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+                                <div className="leads-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
                                     {templates.map(tpl => (
                                         <div key={tpl.id} className="glass-card" style={{ position: 'relative' }}>
                                             <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
@@ -210,7 +240,7 @@ const ExpertDashboard = () => {
                                             <h3 style={{ fontSize: '1.2rem', marginBottom: '8px', paddingRight: '60px' }}>{tpl.title}</h3>
                                             <p style={{ color: 'hsl(var(--text-secondary))', minHeight: '60px', fontSize: '0.9rem' }}>{tpl.short_description}</p>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                                                <span style={{ fontWeight: 'bold' }}>R$ {tpl.price}</span>
+                                                <span style={{ fontWeight: 'bold' }}>{formatCurrency(tpl.price)}</span>
                                                 <button
                                                     className="btn btn-sm btn-outline"
                                                     onClick={() => { setEditingTemplate(tpl); setShowTemplateForm(true); }}
@@ -237,7 +267,7 @@ const ExpertDashboard = () => {
                         <p style={{ color: 'hsl(var(--text-secondary))' }}>Nenhum lead encontrado nesta categoria.</p>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '24px' }}>
+                    <div className="leads-grid">
                         {leads.map((item) => (
                             <div key={item.id} className="glass-card fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', borderColor: item.type === 'offer' ? 'hsl(var(--accent))' : 'var(--glass-border)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -249,7 +279,7 @@ const ExpertDashboard = () => {
                                         {activeTab === 'available' ? 'OFERTA EXCLUSIVA' : (typeof item.status === 'string' ? item.status.toUpperCase() : 'PROJETO')}
                                     </span>
                                     <span style={{ color: 'hsl(var(--success))', fontWeight: 'bold' }}>
-                                        {item.budget ? `R$ ${item.budget}` : 'A combinar'}
+                                        {item.budget ? formatCurrency(item.budget) : 'A combinar'}
                                     </span>
                                 </div>
 
@@ -273,7 +303,7 @@ const ExpertDashboard = () => {
                                 </button>
 
                                 {activeTab === 'available' ? (
-                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                    <div className="opportunity-card-footer" style={{ display: 'flex', gap: '8px' }}>
                                         <button onClick={() => handleAcceptOffer(item.offer_id)} className="btn btn-primary" style={{ flex: 1 }}>
                                             Aceitar
                                         </button>
@@ -316,7 +346,7 @@ const ExpertDashboard = () => {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                                 <div>
                                     <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Orçamento</p>
-                                    <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{selectedLead.budget}</p>
+                                    <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{formatCurrency(selectedLead.budget)}</p>
                                 </div>
                                 <div>
                                     <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Prazo</p>

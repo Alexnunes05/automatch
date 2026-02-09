@@ -49,13 +49,25 @@ const ClientRequest = () => {
             // We use a custom RPC that handles the insert + smart queue trigger in one go.
             // This bypasses the RLS issues for anonymous "insert + select" operations.
 
+            // Robust budget parsing for Brazil (R$ 5.000,00) and Ranges
+            const parseBudget = (str) => {
+                if (!str) return 0;
+                // Take only first numeric part if it's a range
+                const firstPart = str.split(' e ')[0];
+                // 1. Remove all dots (thousands)
+                // 2. Replace comma with dot (decimal)
+                // 3. Remove non-numeric/non-dot chars (R$, spaces)
+                const cleaned = firstPart.replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
+                return parseFloat(cleaned) || 0;
+            };
+
             const payload = {
                 p_client_name: formData.name,
                 p_client_email: formData.email,
                 p_client_whatsapp: formData.whatsapp,
                 p_title: formData.type + ' Automation',
                 p_description: `${formData.description}\n\nFerramentas: ${formData.tools}`,
-                p_budget: parseFloat(formData.budget.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0
+                p_budget: parseBudget(formData.budget)
             };
 
             const { data, error } = await supabase.rpc('rpc_submit_project_anon', payload);
