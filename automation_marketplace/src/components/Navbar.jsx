@@ -1,11 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, User } from 'lucide-react';
+import { LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const Navbar = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -22,7 +23,10 @@ const Navbar = () => {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/login');
+        setIsMenuOpen(false);
     };
+
+    const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
     return (
         <nav style={{
@@ -34,17 +38,22 @@ const Navbar = () => {
             zIndex: 100
         }}>
             <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '80px' }}>
-                <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Link to="/" onClick={() => setIsMenuOpen(false)} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <img src="/logo.png" alt="AutoMatch" style={{ height: '40px' }} />
                     <span style={{ color: '#fff', fontSize: '1.5rem', fontWeight: '800' }}>
                         Auto<span style={{ color: 'hsl(var(--primary))' }}>Match</span>
                     </span>
                 </Link>
 
-                <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                {/* Mobile Toggle */}
+                <button className="nav-toggle" onClick={toggleMenu}>
+                    {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
+                </button>
+
+                <div className={`nav-menu ${isMenuOpen ? 'active' : ''}`}>
                     {user ? (
                         <>
-                            <Link to="/dashboard" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Link to="/dashboard" onClick={() => setIsMenuOpen(false)} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <LayoutDashboard size={18} /> Dashboard
                             </Link>
                             <button onClick={handleLogout} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -53,13 +62,13 @@ const Navbar = () => {
                         </>
                     ) : (
                         <>
-                            <Link to="/templates" style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none' }}>Templates</Link>
-                            <Link to="/projects" style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none' }}>Projetos</Link>
-                            <Link to="/subscription" style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none', fontWeight: 'bold' }}>Seja um Gestor</Link>
-                            <Link to="/pricing" style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none' }}>Preços</Link>
-                            <Link to="/request" className="btn btn-primary">Automatizar Agora</Link>
-                            <Link to="/subscription" className="btn btn-outline" style={{ border: 'none', color: 'hsl(var(--text-secondary))' }}>Criar Conta</Link>
-                            <Link to="/login" className="btn btn-outline">Login</Link>
+                            <Link to="/templates" onClick={() => setIsMenuOpen(false)} style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none' }}>Templates</Link>
+                            <Link to="/projects" onClick={() => setIsMenuOpen(false)} style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none' }}>Projetos</Link>
+                            <Link to="/subscription" onClick={() => setIsMenuOpen(false)} style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none', fontWeight: 'bold' }}>Seja um Gestor</Link>
+                            <Link to="/pricing" onClick={() => setIsMenuOpen(false)} style={{ color: 'hsl(var(--text-secondary))', textDecoration: 'none' }}>Preços</Link>
+                            <Link to="/request" onClick={() => setIsMenuOpen(false)} className="btn btn-primary">Automatizar Agora</Link>
+                            <Link to="/subscription" onClick={() => setIsMenuOpen(false)} className="btn btn-outline" style={{ border: 'none', color: 'hsl(var(--text-secondary))' }}>Criar Conta</Link>
+                            <Link to="/login" onClick={() => setIsMenuOpen(false)} className="btn btn-outline">Login</Link>
                         </>
                     )}
                 </div>
