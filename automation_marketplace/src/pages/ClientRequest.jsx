@@ -66,8 +66,11 @@ const ClientRequest = () => {
                 p_client_email: formData.email,
                 p_client_whatsapp: formData.whatsapp,
                 p_title: formData.type + ' Automation',
-                p_description: `${formData.description}\n\nFerramentas: ${formData.tools}`,
-                p_budget: parseBudget(formData.budget)
+                p_description: formData.description,
+                p_budget: parseBudget(formData.budget),
+                p_deadline: formData.deadline,
+                p_tools: formData.tools,
+                p_type: formData.type
             };
 
             const { data, error } = await supabase.rpc('rpc_submit_project_anon', payload);

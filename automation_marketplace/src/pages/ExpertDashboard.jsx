@@ -39,7 +39,10 @@ const ExpertDashboard = () => {
                         description,
                         budget,
                         deadline,
-                        client_id
+                        client_id,
+                        client_name,
+                        tools,
+                        automation_type
                     )
                 `)
                 .eq('manager_id', userId)
@@ -63,7 +66,14 @@ const ExpertDashboard = () => {
                 .order('updated_at', { ascending: false });
 
             if (error) console.error('Error fetching projects:', error);
-            setLeads(data?.map(p => ({ ...p, type: 'project' })) || []);
+            setLeads(data?.map(p => ({
+                ...p,
+                type: 'project',
+                client_name: p.client_name,
+                deadline: p.deadline,
+                tools: p.tools,
+                automation_type: p.automation_type
+            })) || []);
         }
         setLoading(false);
     };
@@ -283,7 +293,12 @@ const ExpertDashboard = () => {
                                     </span>
                                 </div>
 
-                                <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>{item.title || item.client_name}</h3>
+                                <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>{item.client_name || item.title}</h3>
+                                {item.deadline && (
+                                    <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.8rem', marginBottom: '8px' }}>
+                                        Prazo: {item.deadline}
+                                    </p>
+                                )}
                                 <p style={{ color: 'hsl(var(--text-secondary))', marginBottom: '16px', fontSize: '0.95rem', flex: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                     {item.description}
                                 </p>
