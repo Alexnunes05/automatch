@@ -1,12 +1,17 @@
--- 1. Dropar a função antiga explicitamente para evitar conflito de assinatura (Error 42725)
+-- 1. Dropar TODAS as assinaturas possíveis da função antiga para evitar conflito
 DROP FUNCTION IF EXISTS public.rpc_submit_project_anon(text, text, text, text, text, numeric);
+DROP FUNCTION IF EXISTS public.rpc_submit_project_anon(text, text, text, text, text, numeric, text, text, text);
 
--- 2. Adicionar colunas faltantes na tabela projects (se ainda não existirem)
-ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS deadline text;
+-- 2. CORRIGIR TIPO DA COLUNA DEADLINE:
+-- O erro anterior (42804) indica que 'deadline' era Timestamp, mas estamos enviando texto ("1 semana", "Imediato").
+-- Vamos alterar para TEXT para aceitar qualquer formato descritivo.
+ALTER TABLE public.projects ALTER COLUMN deadline TYPE text USING deadline::text;
+
+-- 3. Adicionar colunas faltantes, se não existirem
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS tools text;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS automation_type text;
 
--- 3. Recriar a função RPC com os novos argumentos
+-- 4. Recriar a função RPC corrigida
 CREATE OR REPLACE FUNCTION public.rpc_submit_project_anon(
     p_client_name text,
     p_client_email text,

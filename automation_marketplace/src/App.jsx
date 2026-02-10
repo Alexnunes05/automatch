@@ -14,6 +14,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import SubscriptionPlan from './pages/SubscriptionPlan';
 import SuccessPayment from './pages/SuccessPayment';
+import AccessRestricted from './pages/AccessRestricted';
 
 import MetaPixel from './components/MetaPixel';
 
@@ -32,8 +33,9 @@ function App() {
                     <Route path="/register" element={<Register />} />
                     <Route path="/subscription" element={<SubscriptionPlan />} />
                     <Route path="/success" element={<SuccessPayment />} />
+                    <Route path="/access-restricted" element={<AccessRestricted />} />
 
-                    <Route element={<ProtectedRoute allowedRoles={['expert', 'admin']} />}>
+                    <Route element={<ProtectedRoute allowedRoles={['expert', 'admin', 'user']} />}>
                         <Route path="/dashboard" element={<ExpertDashboard />} />
                     </Route>
 

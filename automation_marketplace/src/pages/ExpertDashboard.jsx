@@ -63,6 +63,7 @@ const ExpertDashboard = () => {
                 .from('projects')
                 .select('*')
                 .eq('assigned_manager_id', userId)
+                .neq('status', 'contacted') // Filter out contacted
                 .order('updated_at', { ascending: false });
 
             if (error) console.error('Error fetching projects:', error);
@@ -165,6 +166,25 @@ const ExpertDashboard = () => {
         } catch (error) {
             console.error('Erro ao recusar:', error);
             alert(`Erro: ${error.message}`);
+        }
+    };
+
+    const handleMarkContacted = async (projectId) => {
+        if (!confirm('Marcar como contatado? O projeto sairá desta lista.')) return;
+        try {
+            const { error } = await supabase
+                .from('projects')
+                .update({ status: 'contacted' })
+                .eq('id', projectId);
+
+            if (error) throw error;
+
+            // Remove from local list
+            setLeads(prev => prev.filter(l => l.id !== projectId));
+            if (activeTab === 'my-leads') fetchDashboardData(user.id);
+        } catch (error) {
+            console.error('Erro ao atualizar status:', error);
+            alert('Erro ao atualizar status.');
         }
     };
 
@@ -327,8 +347,24 @@ const ExpertDashboard = () => {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div style={{ padding: '8px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                                        Status: {typeof item.status === 'string' ? item.status.toUpperCase() : 'N/A'}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ padding: '4px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem', color: 'hsl(var(--text-secondary))' }}>
+                                            Status: {typeof item.status === 'string' ? item.status.toUpperCase() : 'N/A'}
+                                        </div>
+                                        <button
+                                            onClick={() => handleMarkContacted(item.id)}
+                                            className="btn btn-primary"
+                                            style={{
+                                                width: '100%',
+                                                background: 'hsl(var(--success))',
+                                                borderColor: 'hsl(var(--success))',
+                                                textTransform: 'uppercase',
+                                                fontSize: '0.8rem',
+                                                fontWeight: '700'
+                                            }}
+                                        >
+                                            Entrei em contato com a empresa
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -343,62 +379,76 @@ const ExpertDashboard = () => {
                         backdropFilter: 'blur(5px)'
                     }} onClick={() => setSelectedLead(null)}>
                         <div className="glass-card fade-in" style={{
-                            maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '32px',
-                            position: 'relative', background: '#111', border: '1px solid var(--glass-border)'
+                            maxWidth: '600px', width: '90%', maxHeight: '90vh',
+                            display: 'flex', flexDirection: 'column',
+                            position: 'relative', background: '#111', border: '1px solid var(--glass-border)',
+                            padding: '0' // Padding moved to children
                         }} onClick={e => e.stopPropagation()}>
-                            <button onClick={() => setSelectedLead(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                                <X size={24} />
-                            </button>
-
-                            <h3 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>{selectedLead.client_name}</h3>
-                            <span style={{
-                                background: 'hsl(var(--primary)/0.2)', color: 'hsl(var(--primary))',
-                                padding: '4px 12px', borderRadius: '100px', fontSize: '0.9rem', marginBottom: '24px', display: 'inline-block'
-                            }}>
-                                {selectedLead.automation_type ? selectedLead.automation_type.toUpperCase() : 'N/A'}
-                            </span>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                                <div>
-                                    <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Orçamento</p>
-                                    <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{formatCurrency(selectedLead.budget)}</p>
-                                </div>
-                                <div>
-                                    <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Prazo</p>
-                                    <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{selectedLead.deadline}</p>
-                                </div>
+                            {/* Fixed Header with Close Button */}
+                            <div style={{ padding: '16px', display: 'flex', justifyContent: 'flex-end', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <button onClick={() => setSelectedLead(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '0.9rem', color: 'hsl(var(--text-secondary))' }}>Fechar</span> <X size={24} />
+                                </button>
                             </div>
 
-                            <div style={{ marginBottom: '24px' }}>
-                                <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Ferramentas</p>
-                                <p style={{ background: 'rgba(255,255,255,0.05)', padding: '8px 12px', borderRadius: '8px', marginTop: '4px' }}>
-                                    {selectedLead.tools || 'Não especificadas'}
-                                </p>
-                            </div>
+                            {/* Scrollable Content */}
+                            <div style={{ padding: '32px', overflowY: 'auto' }}>
 
-                            <div style={{ marginBottom: '32px' }}>
-                                <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Descrição Detalhada</p>
-                                <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', marginTop: '4px' }}>
-                                    {selectedLead.description}
-                                </p>
-                            </div>
+                                <h3 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>{selectedLead.client_name}</h3>
+                                <span style={{
+                                    background: 'hsl(var(--primary)/0.2)', color: 'hsl(var(--primary))',
+                                    padding: '4px 12px', borderRadius: '100px', fontSize: '0.9rem', marginBottom: '24px', display: 'inline-block'
+                                }}>
+                                    {selectedLead.automation_type ? selectedLead.automation_type.toUpperCase() : 'N/A'}
+                                </span>
 
-                            {activeTab === 'available' ? (
-                                <div style={{ display: 'flex', gap: '16px' }}>
-                                    <button onClick={() => { handleAcceptOffer(selectedLead.offer_id); setSelectedLead(null); }} className="btn btn-primary btn-lg" style={{ flex: 1 }}>
-                                        Aceitar Oferta
-                                    </button>
-                                    <button onClick={() => { handleDeclineOffer(selectedLead.offer_id); setSelectedLead(null); }} className="btn btn-outline btn-lg" style={{ flex: 1, borderColor: 'hsl(var(--error))', color: 'hsl(var(--error))' }}>
-                                        Recusar
-                                    </button>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                                    <div>
+                                        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Orçamento</p>
+                                        <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{formatCurrency(selectedLead.budget)}</p>
+                                    </div>
+                                    <div>
+                                        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Prazo</p>
+                                        <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{selectedLead.deadline}</p>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div style={{ background: 'rgba(0, 255, 128, 0.1)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(0, 255, 128, 0.2)' }}>
-                                    <h4 style={{ color: 'hsl(var(--success))', marginBottom: '12px' }}>Dados de Contato</h4>
-                                    <p style={{ marginBottom: '8px', fontSize: '1.1rem' }}>📱 <strong>WhatsApp:</strong> {selectedLead.client_whatsapp}</p>
-                                    <p style={{ fontSize: '1.1rem' }}>📧 <strong>Email:</strong> {selectedLead.client_email}</p>
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Ferramentas</p>
+                                    <p style={{ background: 'rgba(255,255,255,0.05)', padding: '8px 12px', borderRadius: '8px', marginTop: '4px' }}>
+                                        {selectedLead.tools || 'Não especificadas'}
+                                    </p>
                                 </div>
-                            )}
+
+                                <div style={{ marginBottom: '32px' }}>
+                                    <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>Descrição Detalhada</p>
+                                    <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px', marginTop: '4px' }}>
+                                        {selectedLead.description}
+                                    </p>
+                                </div>
+
+                                {activeTab === 'available' ? (
+                                    <div style={{ display: 'flex', gap: '16px' }}>
+                                        <button onClick={() => { handleAcceptOffer(selectedLead.offer_id); setSelectedLead(null); }} className="btn btn-primary btn-lg" style={{ flex: 1 }}>
+                                            Aceitar Oferta
+                                        </button>
+                                        <button onClick={() => { handleDeclineOffer(selectedLead.offer_id); setSelectedLead(null); }} className="btn btn-outline btn-lg" style={{ flex: 1, borderColor: 'hsl(var(--error))', color: 'hsl(var(--error))' }}>
+                                            Recusar
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{ background: 'rgba(0, 255, 128, 0.1)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(0, 255, 128, 0.2)' }}>
+                                        <h4 style={{ color: 'hsl(var(--success))', marginBottom: '12px' }}>Dados de Contato</h4>
+                                        <p style={{ marginBottom: '8px', fontSize: '1.1rem' }}>📱 <strong>WhatsApp:</strong> {selectedLead.client_whatsapp}</p>
+                                        <p style={{ fontSize: '1.1rem' }}>📧 <strong>Email:</strong> {selectedLead.client_email}</p>
+                                    </div>
+                                )}
+
+                                {/* Additional Close Button at Screen Bottom for Mobile */}
+                                <button onClick={() => setSelectedLead(null)} className="btn btn-outline" style={{ width: '100%', marginTop: '24px' }}>
+                                    Voltar
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
