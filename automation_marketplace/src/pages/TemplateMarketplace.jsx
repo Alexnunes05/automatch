@@ -39,13 +39,10 @@ const TemplateMarketplace = () => {
     return (
         <>
             <Navbar />
-            <div className="container" style={{ padding: '40px 0', minHeight: '100vh' }}>
+            <div className="container" style={{ paddingTop: '40px', paddingBottom: '40px', minHeight: '100vh' }}>
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '60px', position: 'relative' }}>
-                    <div className="hero-blob" style={{
-                        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                        width: '600px', height: '600px', opacity: 0.2, zIndex: -1
-                    }}></div>
+                    <div className="hero-blob-responsive"></div>
 
                     <h1 style={{ fontSize: '3rem', marginBottom: '16px' }}>
                         Marketplace de <span className="text-gradient">Automação</span>
@@ -58,7 +55,7 @@ const TemplateMarketplace = () => {
                 {/* Filters & Search */}
                 <div className="glass-card" style={{ padding: '24px', marginBottom: '40px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
+                        <div className="search-container">
                             <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-secondary))' }} />
                             <input
                                 type="text"
@@ -99,7 +96,7 @@ const TemplateMarketplace = () => {
                         </button>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '32px' }}>
+                    <div className="marketplace-grid">
                         {filteredTemplates.map(template => (
                             <Link to={`/templates/${template.id}`} key={template.id} style={{ textDecoration: 'none', color: 'inherit' }}>
                                 <div className="glass-card fade-in" style={{

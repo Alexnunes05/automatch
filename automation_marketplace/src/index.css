@@ -917,3 +917,108 @@ textarea:focus {
     padding: 4px 10px;
   }
 }
+
+/* Marketplace & Details Responsive */
+.marketplace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 32px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 40px;
+}
+
+@media (max-width: 768px) {
+  .marketplace-grid {
+    grid-template-columns: 1fr;
+    /* Full width on mobile/tablet */
+    gap: 24px;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+    /* Stack columns on mobile */
+    gap: 32px;
+  }
+}
+
+/* Specific Mobile Fixes (360px-430px) */
+@media (max-width: 480px) {
+  .details-grid {
+    gap: 24px;
+  }
+
+  /* Ensure images don't overflow */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Reset some paddings */
+  .container {
+    padding: 0 16px;
+  }
+}
+
+/* Component Classes */
+.preview-container {
+  height: 300px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search-container {
+  flex: 1;
+  min-width: 300px;
+  position: relative;
+}
+
+.hero-blob-responsive {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  opacity: 0.2;
+  z-index: -1;
+}
+
+@media (max-width: 480px) {
+  .preview-container {
+    height: auto;
+    min-height: 200px;
+  }
+
+  .preview-image {
+    height: auto;
+    /* If we want to ensure it's not cropped, we can use contain, 
+       but usually for banners 'cover' is better aesthetically unless it has text. 
+       User said "não fique cortada", so let's try to let it flow naturally. */
+    object-fit: contain;
+    max-height: 400px;
+  }
+
+  .search-container {
+    min-width: 100%;
+  }
+
+  .hero-blob-responsive {
+    width: 300px;
+    height: 300px;
+  }
+}

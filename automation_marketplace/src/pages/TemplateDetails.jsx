@@ -48,7 +48,7 @@ const TemplateDetails = () => {
     return (
         <>
             <Navbar />
-            <div className="container" style={{ padding: '40px 0', minHeight: '100vh' }}>
+            <div className="container" style={{ paddingTop: '40px', paddingBottom: '40px', minHeight: '100vh' }}>
                 <button
                     onClick={() => navigate('/templates')}
                     className="btn btn-outline"
@@ -57,16 +57,13 @@ const TemplateDetails = () => {
                     <ArrowLeft size={18} /> Voltar para Marketplace
                 </button>
 
-                <div className="grid-responsive" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: '40px' }}>
+                <div className="details-grid">
 
                     {/* Left Column: Details */}
                     <div>
-                        <div style={{
-                            height: '300px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px', marginBottom: '32px',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
-                        }}>
+                        <div className="preview-container">
                             {template.preview_images?.[0] ? (
-                                <img src={template.preview_images[0]} alt={template.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={template.preview_images[0]} alt={template.title} className="preview-image" />
                             ) : (
                                 <Zap size={64} style={{ color: 'hsl(var(--primary))', opacity: 0.5 }} />
                             )}
