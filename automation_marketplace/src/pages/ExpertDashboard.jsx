@@ -323,11 +323,7 @@ const ExpertDashboard = () => {
                                     {item.description}
                                 </p>
 
-                                {activeTab === 'available' && item.expires_at && (
-                                    <div style={{ marginBottom: '16px', color: 'hsl(var(--error))', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                                        Expira em: {new Date(item.expires_at).toLocaleTimeString()}
-                                    </div>
-                                )}
+
 
                                 <button
                                     onClick={() => setSelectedLead(item)}
