@@ -128,6 +128,18 @@ const PortfolioManager = ({ user }) => {
                                     placeholder="https://..."
                                     value={newItem.project_link}
                                     onChange={e => setNewItem({ ...newItem, project_link: e.target.value })}
+                                    onBlur={() => {
+                                        if (!newItem.image_url && newItem.project_link) {
+                                            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                                            const match = newItem.project_link.match(regExp);
+                                            if (match && match[2].length === 11) {
+                                                setNewItem(prev => ({
+                                                    ...prev,
+                                                    image_url: `https://img.youtube.com/vi/${match[2]}/maxresdefault.jpg`
+                                                }));
+                                            }
+                                        }
+                                    }}
                                     style={{ width: '100%', padding: '10px', borderRadius: '4px', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff' }}
                                 />
                             </div>
