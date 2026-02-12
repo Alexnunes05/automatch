@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { supabase } from '../services/supabase';
-import { Check, X, MessageCircle, DollarSign, Plus, Edit } from 'lucide-react';
+import { Check, X, MessageCircle, DollarSign, Plus, Edit, Send } from 'lucide-react';
 import TemplateForm from '../components/TemplateForm';
 import NewsTab from '../components/NewsTab';
 import ProfileSettings from './expert/ProfileSettings';
 import PortfolioManager from './expert/PortfolioManager';
+import ProposalModal from '../components/ProposalModal';
 
 const ExpertDashboard = () => {
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     };
 
-    // Force rebuild: v2
+    // Force rebuild: v3 (Marketplace)
     const [activeTab, setActiveTab] = useState('available'); // available | my-leads | templates | portfolio | profile | news
     const [leads, setLeads] = useState([]);
     const [templates, setTemplates] = useState([]);
@@ -22,59 +23,84 @@ const ExpertDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
 
+    // Proposal Modal State
+    const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
+    const [proposalTarget, setProposalTarget] = useState(null);
+    const [myProposals, setMyProposals] = useState(new Set()); // Set of project_ids where user applied
+
     const fetchDashboardData = async (userId) => {
         setLoading(true);
 
         if (activeTab === 'available') {
-            // Fetch OFFERS for this expert
-            const { data, error } = await supabase
-                .from('project_offers')
-                .select(`
-                    id,
-                    status,
-                    expires_at,
-                    projects (
-                        id,
-                        title,
-                        description,
-                        budget,
-                        deadline,
-                        client_id,
-                        client_name,
-                        tools,
-                        automation_type
-                    )
-                `)
-                .eq('manager_id', userId)
-                .eq('status', 'offered')
-                .gt('expires_at', new Date().toISOString());
-
-            if (error) console.error('Error fetching offers:', error);
-            setLeads(data?.map(offer => ({
-                ...offer.projects,
-                offer_id: offer.id,
-                expires_at: offer.expires_at,
-                type: 'offer' // Marker
-            })) || []);
-
-        } else if (activeTab === 'my-leads') {
-            // Fetch ACTIVE PROJECTS assigned to this expert
+            // MARKETPLACE LOGIC: Fetch OPEN projects that haven't expired
             const { data, error } = await supabase
                 .from('projects')
                 .select('*')
-                .eq('assigned_manager_id', userId)
-                .neq('status', 'contacted') // Filter out contacted
-                .order('updated_at', { ascending: false });
+                .eq('status', 'open')
+                .gt('expires_at', new Date().toISOString())
+                .order('created_at', { ascending: false });
 
             if (error) console.error('Error fetching projects:', error);
-            setLeads(data?.map(p => ({
+            setLeads(data || []);
+
+            // Check which projects this user has already applied to
+            const { data: proposals, error: propError } = await supabase
+                .from('project_proposals')
+                .select('project_id')
+                .eq('manager_id', userId);
+
+            if (propError) console.error('Error fetching proposals:', propError);
+            const appliedSet = new Set(proposals?.map(p => p.project_id));
+            setMyProposals(appliedSet);
+
+        } else if (activeTab === 'my-leads') {
+            // 1. Fetch ACTIVE PROJECTS assigned to this expert
+            const { data: assignedProjects, error: assignedError } = await supabase
+                .from('projects')
+                .select('*')
+                .eq('assigned_manager_id', userId)
+                .neq('status', 'contacted')
+                .order('updated_at', { ascending: false });
+
+            if (assignedError) console.error('Error fetching assigned projects:', assignedError);
+
+            // 2. Fetch PROJECTS where I have an Active Proposal (not expired)
+            // First get project_ids from proposals
+            const { data: myProposalsData, error: proposalError } = await supabase
+                .from('project_proposals')
+                .select('project_id')
+                .eq('manager_id', userId);
+
+            let appliedProjects = [];
+            if (!proposalError && myProposalsData && myProposalsData.length > 0) {
+                const projectIds = myProposalsData.map(p => p.project_id);
+
+                // Fetch the actual projects if they are still OPEN and NOT EXPIRED
+                const { data: proposalsProjects, error: projectsError } = await supabase
+                    .from('projects')
+                    .select('*')
+                    .in('id', projectIds)
+                    .eq('status', 'open')
+                    .gt('expires_at', new Date().toISOString()) // Only show if not expired
+                    .order('created_at', { ascending: false });
+
+                if (projectsError) console.error('Error fetching applied projects:', projectsError);
+                appliedProjects = proposalsProjects || [];
+            }
+
+            // Combine and Deduplicate (just in case)
+            const combined = [...(assignedProjects || []), ...appliedProjects];
+            // Use a Map to remove duplicates by ID
+            const uniqueLeads = Array.from(new Map(combined.map(item => [item.id, item])).values());
+
+            setLeads(uniqueLeads.map(p => ({
                 ...p,
-                type: 'project',
+                type: 'project', // or distinguish if needed
                 client_name: p.client_name,
                 deadline: p.deadline,
                 tools: p.tools,
                 automation_type: p.automation_type
-            })) || []);
+            })));
         }
         setLoading(false);
     };
@@ -139,34 +165,37 @@ const ExpertDashboard = () => {
         );
     }
 
-    const handleAcceptOffer = async (offerId) => {
-        try {
-            const { data, error } = await supabase.rpc('rpc_accept_offer', { offer_id: offerId });
-
-            if (error) throw error;
-            if (!data.success) throw new Error(data.message);
-
-            alert('Projeto aceito com sucesso! ✅');
-            fetchDashboardData(user.id);
-        } catch (error) {
-            console.error('Erro ao aceitar:', error);
-            alert(`Erro: ${error.message}`);
-        }
+    const openProposalModal = (project) => {
+        setProposalTarget(project);
+        setIsProposalModalOpen(true);
     };
 
-    const handleDeclineOffer = async (offerId) => {
-        if (!confirm('Tem certeza? Isso passará a oportunidade para outro gestor.')) return;
-        try {
-            const { data, error } = await supabase.rpc('rpc_decline_offer', { offer_id: offerId });
+    const handleSubmitProposal = async (proposalData) => {
+        // 1. Save Proposal to DB
+        const { error } = await supabase
+            .from('project_proposals')
+            .insert({
+                ...proposalData,
+                manager_id: user.id
+            });
 
-            if (error) throw error;
-            if (!data.success) throw new Error(data.message);
+        if (error) throw error;
 
-            fetchDashboardData(user.id);
-        } catch (error) {
-            console.error('Erro ao recusar:', error);
-            alert(`Erro: ${error.message}`);
+        // 2. Open WhatsApp with Proposal Text
+        if (proposalTarget && proposalTarget.client_whatsapp) {
+            const message = `Olá, ${proposalTarget.client_name}! Vi seu projeto "${proposalTarget.title || 'Automação'}" no Marketplace.\n\n` +
+                `*Minha Proposta:*\n` +
+                `💰 Orçamento: R$ ${proposalData.proposed_budget}\n` +
+                `📅 Prazo: ${proposalData.proposed_deadline}\n\n` +
+                `📝 ${proposalData.cover_letter}\n\n` +
+                `Podemos conversar?`;
+
+            const whatsappUrl = `https://wa.me/55${proposalTarget.client_whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
         }
+
+        alert('Proposta salva! O WhatsApp deve abrir em breve. 🚀');
+        fetchDashboardData(user.id); // Refresh to update "Applied" status
     };
 
     const handleMarkContacted = async (projectId) => {
@@ -294,77 +323,83 @@ const ExpertDashboard = () => {
                     <p>Carregando...</p>
                 ) : leads.length === 0 ? (
                     <div className="glass-card" style={{ textAlign: 'center', padding: '60px' }}>
-                        <p style={{ color: 'hsl(var(--text-secondary))' }}>Nenhum lead encontrado nesta categoria.</p>
+                        <p style={{ color: 'hsl(var(--text-secondary))' }}>Nenhum projeto encontrado nesta categoria.</p>
                     </div>
                 ) : (
                     <div className="leads-grid">
-                        {leads.map((item) => (
-                            <div key={item.id} className="glass-card fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', borderColor: item.type === 'offer' ? 'hsl(var(--accent))' : 'var(--glass-border)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                    <span style={{
-                                        background: activeTab === 'available' ? 'hsl(var(--accent)/0.2)' : 'hsl(var(--primary)/0.2)',
-                                        color: activeTab === 'available' ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
-                                        padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600'
-                                    }}>
-                                        {activeTab === 'available' ? 'OFERTA EXCLUSIVA' : (typeof item.status === 'string' ? item.status.toUpperCase() : 'PROJETO')}
-                                    </span>
-                                    <span style={{ color: 'hsl(var(--success))', fontWeight: 'bold' }}>
-                                        {item.budget ? formatCurrency(item.budget) : 'A combinar'}
-                                    </span>
-                                </div>
+                        {leads.map((item) => {
+                            const hasApplied = myProposals.has(item.id);
+                            return (
+                                <div key={item.id} className="glass-card fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', borderColor: hasApplied ? 'hsl(var(--success))' : 'var(--glass-border)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                        <span style={{
+                                            background: activeTab === 'available' ? 'hsl(var(--accent)/0.2)' : 'hsl(var(--primary)/0.2)',
+                                            color: activeTab === 'available' ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
+                                            padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600'
+                                        }}>
+                                            {activeTab === 'available' ? 'NOVO PROJETO' : (typeof item.status === 'string' ? item.status.toUpperCase() : 'PROJETO')}
+                                        </span>
+                                        <span style={{ color: 'hsl(var(--success))', fontWeight: 'bold' }}>
+                                            {item.budget ? formatCurrency(item.budget) : 'A combinar'}
+                                        </span>
+                                    </div>
 
-                                <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>{item.client_name || item.title}</h3>
-                                {item.deadline && (
-                                    <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.8rem', marginBottom: '8px' }}>
-                                        Prazo: {item.deadline}
+                                    <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>{item.client_name || item.title}</h3>
+                                    {item.deadline && (
+                                        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.8rem', marginBottom: '8px' }}>
+                                            Prazo: {item.deadline}
+                                        </p>
+                                    )}
+                                    <p style={{ color: 'hsl(var(--text-secondary))', marginBottom: '16px', fontSize: '0.95rem', flex: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                        {item.description}
                                     </p>
-                                )}
-                                <p style={{ color: 'hsl(var(--text-secondary))', marginBottom: '16px', fontSize: '0.95rem', flex: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                    {item.description}
-                                </p>
 
 
 
-                                <button
-                                    onClick={() => setSelectedLead(item)}
-                                    className="btn btn-outline"
-                                    style={{ width: '100%', marginBottom: '8px', fontSize: '0.9rem', padding: '8px' }}
-                                >
-                                    Ver Detalhes
-                                </button>
+                                    <button
+                                        onClick={() => setSelectedLead(item)}
+                                        className="btn btn-outline"
+                                        style={{ width: '100%', marginBottom: '8px', fontSize: '0.9rem', padding: '8px' }}
+                                    >
+                                        Ver Detalhes
+                                    </button>
 
-                                {activeTab === 'available' ? (
-                                    <div className="opportunity-card-footer" style={{ display: 'flex', gap: '8px' }}>
-                                        <button onClick={() => handleAcceptOffer(item.offer_id)} className="btn btn-primary" style={{ flex: 1 }}>
-                                            Aceitar
-                                        </button>
-                                        <button onClick={() => handleDeclineOffer(item.offer_id)} className="btn btn-outline" style={{ flex: 1, borderColor: 'hsl(var(--error))', color: 'hsl(var(--error))' }}>
-                                            Recusar
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ padding: '4px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem', color: 'hsl(var(--text-secondary))' }}>
-                                            Status: {typeof item.status === 'string' ? item.status.toUpperCase() : 'N/A'}
+                                    {activeTab === 'available' ? (
+                                        <div className="opportunity-card-footer">
+                                            {hasApplied ? (
+                                                <button disabled className="btn btn-outline" style={{ width: '100%', borderColor: 'hsl(var(--success))', color: 'hsl(var(--success))', opacity: 1 }}>
+                                                    Check <Check size={16} style={{ marginLeft: '4px' }} /> Proposta Enviada
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => openProposalModal(item)} className="btn btn-primary" style={{ width: '100%' }}>
+                                                    <Send size={16} style={{ marginRight: '6px' }} /> Enviar Proposta
+                                                </button>
+                                            )}
                                         </div>
-                                        <button
-                                            onClick={() => handleMarkContacted(item.id)}
-                                            className="btn btn-primary"
-                                            style={{
-                                                width: '100%',
-                                                background: 'hsl(var(--success))',
-                                                borderColor: 'hsl(var(--success))',
-                                                textTransform: 'uppercase',
-                                                fontSize: '0.8rem',
-                                                fontWeight: '700'
-                                            }}
-                                        >
-                                            Entrei em contato com a empresa
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div style={{ padding: '4px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem', color: 'hsl(var(--text-secondary))' }}>
+                                                Status: {typeof item.status === 'string' ? item.status.toUpperCase() : 'N/A'}
+                                            </div>
+                                            <button
+                                                onClick={() => handleMarkContacted(item.id)}
+                                                className="btn btn-primary"
+                                                style={{
+                                                    width: '100%',
+                                                    background: 'hsl(var(--success))',
+                                                    borderColor: 'hsl(var(--success))',
+                                                    textTransform: 'uppercase',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: '700'
+                                                }}
+                                            >
+                                                Entrei em contato com a empresa
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
                     </div>
                 )}
 
@@ -423,20 +458,28 @@ const ExpertDashboard = () => {
                                     </p>
                                 </div>
 
+                                {/* Contact Info - ALWAYS VISIBLE */}
+                                <div style={{ background: 'rgba(0, 255, 128, 0.1)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(0, 255, 128, 0.2)', marginBottom: '24px' }}>
+                                    <h4 style={{ color: 'hsl(var(--success))', marginBottom: '12px' }}>Dados de Contato</h4>
+                                    <p style={{ marginBottom: '8px', fontSize: '1.1rem' }}>📱 <strong>WhatsApp:</strong> {selectedLead.client_whatsapp}</p>
+                                    <p style={{ fontSize: '1.1rem' }}>📧 <strong>Email:</strong> {selectedLead.client_email}</p>
+                                </div>
+
                                 {activeTab === 'available' ? (
                                     <div style={{ display: 'flex', gap: '16px' }}>
-                                        <button onClick={() => { handleAcceptOffer(selectedLead.offer_id); setSelectedLead(null); }} className="btn btn-primary btn-lg" style={{ flex: 1 }}>
-                                            Aceitar Oferta
-                                        </button>
-                                        <button onClick={() => { handleDeclineOffer(selectedLead.offer_id); setSelectedLead(null); }} className="btn btn-outline btn-lg" style={{ flex: 1, borderColor: 'hsl(var(--error))', color: 'hsl(var(--error))' }}>
-                                            Recusar
-                                        </button>
+                                        {myProposals.has(selectedLead.id) ? (
+                                            <button disabled className="btn btn-outline btn-lg" style={{ width: '100%', borderColor: 'hsl(var(--success))', color: 'hsl(var(--success))', opacity: 1 }}>
+                                                Check <Check size={16} /> Proposta Já Enviada
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => { setSelectedLead(null); openProposalModal(selectedLead); }} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
+                                                <Send size={18} style={{ marginRight: '8px' }} /> Enviar Proposta
+                                            </button>
+                                        )}
                                     </div>
                                 ) : (
-                                    <div style={{ background: 'rgba(0, 255, 128, 0.1)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(0, 255, 128, 0.2)' }}>
-                                        <h4 style={{ color: 'hsl(var(--success))', marginBottom: '12px' }}>Dados de Contato</h4>
-                                        <p style={{ marginBottom: '8px', fontSize: '1.1rem' }}>📱 <strong>WhatsApp:</strong> {selectedLead.client_whatsapp}</p>
-                                        <p style={{ fontSize: '1.1rem' }}>📧 <strong>Email:</strong> {selectedLead.client_email}</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {/* Status moved above or just kept simple */}
                                     </div>
                                 )}
 
@@ -448,6 +491,13 @@ const ExpertDashboard = () => {
                         </div>
                     </div>
                 )}
+
+                <ProposalModal
+                    isOpen={isProposalModalOpen}
+                    onClose={() => setIsProposalModalOpen(false)}
+                    project={proposalTarget}
+                    onSubmit={handleSubmitProposal}
+                />
             </div>
         </>
     );

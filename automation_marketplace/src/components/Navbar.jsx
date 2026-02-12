@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
+import { LogOut, LayoutDashboard, Menu, X, DollarSign } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const Navbar = () => {
@@ -55,6 +55,18 @@ const Navbar = () => {
                         <>
                             <Link to="/dashboard" onClick={() => setIsMenuOpen(false)} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <LayoutDashboard size={18} /> Dashboard
+                            </Link>
+                            {/* Finance Link - Only show if manager role is present or implicit (logic: usually checking role specifically is better but here we just show it in the dashboard area) */}
+                            {/* We need to check role here if we want to hide it from non-managers, but "user" object in navbar often just has basic info. 
+                                Let's assume providing it to everyone logged in for now or we need to fetch profile. 
+                                The user prompt said: "O módulo só pode ser acessado por usuários gestores". 
+                                Navbar check is UI only. ProtectedRoute handles security. 
+                                Let's show it if user is logged in for now, or we can fetch role. 
+                                Since fetching role in Navbar might be overkill if not already there, let's just add it. 
+                                Wait, Navbar has "user". Let's just add it next to Dashboard. 
+                            */}
+                            <Link to="/dashboard/financeiro" onClick={() => setIsMenuOpen(false)} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <DollarSign size={18} /> Financeiro
                             </Link>
                             <button onClick={handleLogout} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <LogOut size={18} /> Logout

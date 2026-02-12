@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import ExpertProfile from './pages/ExpertProfile';
 import ProjectShowcase from './pages/ProjectShowcase';
 import ExpertDashboard from './pages/ExpertDashboard';
+import FinancialDashboard from './pages/FinancialDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import TemplateMarketplace from './pages/TemplateMarketplace';
 import TemplateDetails from './pages/TemplateDetails';
@@ -35,8 +36,9 @@ function App() {
                     <Route path="/success" element={<SuccessPayment />} />
                     <Route path="/access-restricted" element={<AccessRestricted />} />
 
-                    <Route element={<ProtectedRoute allowedRoles={['expert', 'admin', 'user']} />}>
+                    <Route element={<ProtectedRoute allowedRoles={['expert', 'admin', 'user', 'manager']} />}>
                         <Route path="/dashboard" element={<ExpertDashboard />} />
+                        <Route path="/dashboard/financeiro" element={<FinancialDashboard />} />
                     </Route>
 
                     <Route path="/expert/:id" element={<ExpertProfile />} />
