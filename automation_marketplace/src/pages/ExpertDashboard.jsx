@@ -24,6 +24,11 @@ const ExpertDashboard = () => {
     const [user, setUser] = useState(null);
 
     // Proposal Modal State
+    // Proposal Modal State
+    const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
+    const [proposalTarget, setProposalTarget] = useState(null);
+    const [myProposals, setMyProposals] = useState(new Set()); // Set of project_ids where user applied
+
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
