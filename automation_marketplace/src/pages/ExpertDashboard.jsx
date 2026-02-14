@@ -24,24 +24,31 @@ const ExpertDashboard = () => {
     const [user, setUser] = useState(null);
 
     // Proposal Modal State
-    const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
-    const [proposalTarget, setProposalTarget] = useState(null);
-    const [myProposals, setMyProposals] = useState(new Set()); // Set of project_ids where user applied
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const ITEMS_PER_PAGE = 9;
 
     const fetchDashboardData = async (userId) => {
         setLoading(true);
 
         if (activeTab === 'available') {
             // MARKETPLACE LOGIC: Fetch OPEN projects that haven't expired
-            const { data, error } = await supabase
+            // Calculate range for pagination
+            const from = (currentPage - 1) * ITEMS_PER_PAGE;
+            const to = from + ITEMS_PER_PAGE - 1;
+
+            const { data, count, error } = await supabase
                 .from('projects')
-                .select('*')
+                .select('*', { count: 'exact' }) // Get total count for pagination
                 .eq('status', 'open')
                 .gt('expires_at', new Date().toISOString())
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false })
+                .range(from, to);
 
             if (error) console.error('Error fetching projects:', error);
             setLeads(data || []);
+            setTotalItems(count || 0);
 
             // Check which projects this user has already applied to
             const { data: proposals, error: propError } = await supabase
@@ -144,7 +151,15 @@ const ExpertDashboard = () => {
             setLoading(false);
         };
         fetchUserAndData();
-    }, [activeTab]);
+        // Scroll to top when page changes
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [activeTab, currentPage]); // Add currentPage dependency
+
+    // Reset pagination when switching tabs
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setCurrentPage(1); // Reset to page 1
+    };
 
     if (!loading && !user) {
         return (
@@ -217,6 +232,15 @@ const ExpertDashboard = () => {
         }
     };
 
+    // Pagination Helpers
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
     return (
         <>
             <Navbar />
@@ -226,37 +250,37 @@ const ExpertDashboard = () => {
                     <div className="glass-card dashboard-tabs-wrapper">
                         <button
                             className={`btn ${activeTab === 'available' ? 'btn-primary' : 'btn-outline'}`}
-                            onClick={() => setActiveTab('available')}
+                            onClick={() => handleTabChange('available')}
                         >
                             Novas Oportunidades
                         </button>
                         <button
                             className={`btn ${activeTab === 'my-leads' ? 'btn-primary' : 'btn-outline'}`}
-                            onClick={() => setActiveTab('my-leads')}
+                            onClick={() => handleTabChange('my-leads')}
                         >
                             Meus Projetos
                         </button>
                         <button
                             className={`btn ${activeTab === 'templates' ? 'btn-primary' : 'btn-outline'}`}
-                            onClick={() => setActiveTab('templates')}
+                            onClick={() => handleTabChange('templates')}
                         >
                             Meus Templates
                         </button>
                         <button
                             className={`btn ${activeTab === 'news' ? 'btn-primary' : 'btn-outline'}`}
-                            onClick={() => setActiveTab('news')}
+                            onClick={() => handleTabChange('news')}
                         >
                             Notícias
                         </button>
                         <button
                             className={`btn ${activeTab === 'portfolio' ? 'btn-primary' : 'btn-outline'}`}
-                            onClick={() => setActiveTab('portfolio')}
+                            onClick={() => handleTabChange('portfolio')}
                         >
                             Portfólio
                         </button>
                         <button
                             className={`btn ${activeTab === 'profile' ? 'btn-primary' : 'btn-outline'}`}
-                            onClick={() => setActiveTab('profile')}
+                            onClick={() => handleTabChange('profile')}
                         >
                             Perfil
                         </button>
@@ -326,80 +350,124 @@ const ExpertDashboard = () => {
                         <p style={{ color: 'hsl(var(--text-secondary))' }}>Nenhum projeto encontrado nesta categoria.</p>
                     </div>
                 ) : (
-                    <div className="leads-grid">
-                        {leads.map((item) => {
-                            const hasApplied = myProposals.has(item.id);
-                            return (
-                                <div key={item.id} className="glass-card fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', borderColor: hasApplied ? 'hsl(var(--success))' : 'var(--glass-border)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                        <span style={{
-                                            background: activeTab === 'available' ? 'hsl(var(--accent)/0.2)' : 'hsl(var(--primary)/0.2)',
-                                            color: activeTab === 'available' ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
-                                            padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600'
-                                        }}>
-                                            {activeTab === 'available' ? 'NOVO PROJETO' : (typeof item.status === 'string' ? item.status.toUpperCase() : 'PROJETO')}
-                                        </span>
-                                        <span style={{ color: 'hsl(var(--success))', fontWeight: 'bold' }}>
-                                            {item.budget ? formatCurrency(item.budget) : 'A combinar'}
-                                        </span>
-                                    </div>
+                    <div>
+                        {activeTab === 'available' && totalItems > 0 && (
+                            <div style={{ marginBottom: '16px', color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>
+                                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} de {totalItems} oportunidades
+                            </div>
+                        )}
+                        <div className="leads-grid">
+                            {leads.map((item) => {
+                                const hasApplied = myProposals.has(item.id);
+                                return (
+                                    <div key={item.id} className="glass-card fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', borderColor: hasApplied ? 'hsl(var(--success))' : 'var(--glass-border)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                            <span style={{
+                                                background: activeTab === 'available' ? 'hsl(var(--accent)/0.2)' : 'hsl(var(--primary)/0.2)',
+                                                color: activeTab === 'available' ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
+                                                padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600'
+                                            }}>
+                                                {activeTab === 'available' ? 'NOVO PROJETO' : (typeof item.status === 'string' ? item.status.toUpperCase() : 'PROJETO')}
+                                            </span>
+                                            <span style={{ color: 'hsl(var(--success))', fontWeight: 'bold' }}>
+                                                {item.budget ? formatCurrency(item.budget) : 'A combinar'}
+                                            </span>
+                                        </div>
 
-                                    <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>{item.client_name || item.title}</h3>
-                                    {item.deadline && (
-                                        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.8rem', marginBottom: '8px' }}>
-                                            Prazo: {item.deadline}
+                                        <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>{item.client_name || item.title}</h3>
+                                        {item.deadline && (
+                                            <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.8rem', marginBottom: '8px' }}>
+                                                Prazo: {item.deadline}
+                                            </p>
+                                        )}
+                                        <p style={{ color: 'hsl(var(--text-secondary))', marginBottom: '16px', fontSize: '0.95rem', flex: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {item.description}
                                         </p>
-                                    )}
-                                    <p style={{ color: 'hsl(var(--text-secondary))', marginBottom: '16px', fontSize: '0.95rem', flex: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                        {item.description}
-                                    </p>
 
 
 
-                                    <button
-                                        onClick={() => setSelectedLead(item)}
-                                        className="btn btn-outline"
-                                        style={{ width: '100%', marginBottom: '8px', fontSize: '0.9rem', padding: '8px' }}
-                                    >
-                                        Ver Detalhes
-                                    </button>
+                                        <button
+                                            onClick={() => setSelectedLead(item)}
+                                            className="btn btn-outline"
+                                            style={{ width: '100%', marginBottom: '8px', fontSize: '0.9rem', padding: '8px' }}
+                                        >
+                                            Ver Detalhes
+                                        </button>
 
-                                    {activeTab === 'available' ? (
-                                        <div className="opportunity-card-footer">
-                                            {hasApplied ? (
-                                                <button disabled className="btn btn-outline" style={{ width: '100%', borderColor: 'hsl(var(--success))', color: 'hsl(var(--success))', opacity: 1 }}>
-                                                    Check <Check size={16} style={{ marginLeft: '4px' }} /> Proposta Enviada
-                                                </button>
-                                            ) : (
-                                                <button onClick={() => openProposalModal(item)} className="btn btn-primary" style={{ width: '100%' }}>
-                                                    <Send size={16} style={{ marginRight: '6px' }} /> Enviar Proposta
-                                                </button>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            <div style={{ padding: '4px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem', color: 'hsl(var(--text-secondary))' }}>
-                                                Status: {typeof item.status === 'string' ? item.status.toUpperCase() : 'N/A'}
+                                        {activeTab === 'available' ? (
+                                            <div className="opportunity-card-footer">
+                                                {hasApplied ? (
+                                                    <button disabled className="btn btn-outline" style={{ width: '100%', borderColor: 'hsl(var(--success))', color: 'hsl(var(--success))', opacity: 1 }}>
+                                                        Check <Check size={16} style={{ marginLeft: '4px' }} /> Proposta Enviada
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => openProposalModal(item)} className="btn btn-primary" style={{ width: '100%' }}>
+                                                        <Send size={16} style={{ marginRight: '6px' }} /> Enviar Proposta
+                                                    </button>
+                                                )}
                                             </div>
-                                            <button
-                                                onClick={() => handleMarkContacted(item.id)}
-                                                className="btn btn-primary"
-                                                style={{
-                                                    width: '100%',
-                                                    background: 'hsl(var(--success))',
-                                                    borderColor: 'hsl(var(--success))',
-                                                    textTransform: 'uppercase',
-                                                    fontSize: '0.8rem',
-                                                    fontWeight: '700'
-                                                }}
-                                            >
-                                                Entrei em contato com a empresa
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })}
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ padding: '4px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem', color: 'hsl(var(--text-secondary))' }}>
+                                                    Status: {typeof item.status === 'string' ? item.status.toUpperCase() : 'N/A'}
+                                                </div>
+                                                <button
+                                                    onClick={() => handleMarkContacted(item.id)}
+                                                    className="btn btn-primary"
+                                                    style={{
+                                                        width: '100%',
+                                                        background: 'hsl(var(--success))',
+                                                        borderColor: 'hsl(var(--success))',
+                                                        textTransform: 'uppercase',
+                                                        fontSize: '0.8rem',
+                                                        fontWeight: '700'
+                                                    }}
+                                                >
+                                                    Entrei em contato com a empresa
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                        {/* Pagination Controls */}
+                        {activeTab === 'available' && totalPages > 1 && (
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '32px' }}>
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="btn btn-outline"
+                                    style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                                >
+                                    Anterior
+                                </button>
+
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                    <button
+                                        key={page}
+                                        onClick={() => handlePageChange(page)}
+                                        className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                                        style={{
+                                            padding: '8px 12px',
+                                            minWidth: '40px',
+                                            fontWeight: currentPage === page ? 'bold' : 'normal'
+                                        }}
+                                    >
+                                        {page}
+                                    </button>
+                                ))}
+
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className="btn btn-outline"
+                                    style={{ opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                                >
+                                    Próximo
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
